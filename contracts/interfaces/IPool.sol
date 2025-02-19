@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.0;
 
-import {IPoolAddressesProvider} from './IPoolAddressesProvider.sol';
 import {DataTypes} from '../libraries/types/DataTypes.sol';
 
 /**
@@ -613,12 +612,6 @@ interface IPool {
    * @return The address of the reserve associated with id
    */
   function getReserveAddressById(uint16 id) external view returns (address);
-
-  /**
-   * @notice Returns the PoolAddressesProvider connected to this contract
-   * @return The address of the PoolAddressesProvider
-   */
-  function ADDRESSES_PROVIDER() external view returns (IPoolAddressesProvider);
 
   /**
    * @notice Updates the protocol fee on the bridging
