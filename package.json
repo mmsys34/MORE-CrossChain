@@ -1,0 +1,23 @@
+{
+  "name": "more-crosschain",
+  "description": "",
+  "version": "2.0.0",
+  "dependencies": {
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^3.0.8",
+    "@nomicfoundation/hardhat-foundry": "^1.1.3",
+    "@nomicfoundation/hardhat-verify": "^2.0.12",
+    "ethers": "^6.13.4",
+    "hardhat": "^2.22.17"
+  },
+  "scripts": {
+    "clean": "rm -rf ./artifacts ./cache_hardhat ./cache ./out",
+    "compile": "hardhat compile",
+    "build": "forge build",
+    "test": "forge test -vvv",
+    "test:gas": "forge test -vvv --gas-report",
+    "coverage": "forge coverage"
+  }
+}

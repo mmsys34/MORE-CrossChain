@@ -1,0 +1,27 @@
+# for verify
+args.js 
+.env
+
+# Foundry
+cache/
+out/
+broadcast/
+
+# JS
+node_modules/
+package-lock.json
+
+# Hardhat files
+cache_hardhat/
+artifacts/
+
+# Hardhat plugin files
+typechain-types/
+
+#Python Data
+script/Python/Data/
+
+#others
+build
+.vscode
+.openzeppelin

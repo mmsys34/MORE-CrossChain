@@ -1,0 +1,18 @@
+[profile.default]
+src = 'contracts'
+out = 'out'
+libs = ['lib']
+gas_reports = ["*"]
+optimizer = true
+optimizer_runs = 200
+build_info = true
+extra_output = ["storageLayout"]
+# See more config options https://github.com/foundry-rs/foundry/tree/master/config
+
+[rpc_endpoints]
+flow = "${FLOW_RPC_URL}"
+ethereum = "${ETH_RPC_URL}"
+arbitrum = "${ARB_RPC_URL}"
+
+[fuzz]
+runs = 512
