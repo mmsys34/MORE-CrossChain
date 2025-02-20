@@ -1,5 +1,6 @@
 require("@nomicfoundation/hardhat-foundry");
 require("@nomicfoundation/hardhat-verify");
+require("@nomicfoundation/hardhat-ethers");
 require("dotenv").config();
 require("./tasks");
 
@@ -26,7 +27,7 @@ module.exports = {
       },
     },
     flowTestnet: {
-      url: 'https://testnet.evm.nodes.onflow.org',
+      url: process.env.FLOW_TESTNET_RPC_URL,
       chainId: 545,
       accounts: [process.env.PRIVATE_KEY]
     },

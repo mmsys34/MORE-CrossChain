@@ -7,6 +7,20 @@ import { IPool } from "./interfaces/IPool.sol";
 import { IStargate, SendParam, MessagingFee, OFTReceipt } from "./interfaces/IStargate.sol";
 
 contract StargateIntegration is Ownable {
+    event SetStargateOFTs(
+        address indexed asset,
+        address indexed stargateOFT
+    );
+
+    event Borrow(
+        address indexed borrower,
+        address indexed asset,
+        address indexed stargateOFT,
+        uint256 amount,
+        uint32 dstEndpointId,
+        address receiver
+    );
+
     error ZeroAddress();
     error SameChainBorrow();
     error NotSupportedAsset();
@@ -16,16 +30,34 @@ contract StargateIntegration is Ownable {
 
     mapping(address =>  address) public stargateOFTs;
 
+    /// @notice Constructor
     constructor() Ownable(msg.sender) {}
 
+    /**
+     * @notice Sets Stargate OFT addresses for each underlying asset to be borrowed.
+     * @param asset The underlying asset to be borrowed.
+     * @param stargateOFT The stargate OFT address.
+     */
     function setStargateOFTs(
         address asset,
-        address stargate
+        address stargateOFT
     ) external onlyOwner {
         if (asset == address(0)) revert ZeroAddress();
-        stargateOFTs[asset] = stargate;
+        stargateOFTs[asset] = stargateOFT;
+
+        emit SetStargateOFTs(asset, stargateOFT);
     }
 
+    /**
+     * @notice Allows users to borrow a specific `amount` of the reserve underlying asset into the destination chain.
+     * @dev The borrowers should already provide supplied enough collateral and delegate borrowing power to this contract
+     * on the corresponding debt token (StableDebtToken or VariableDebtToken).
+     * @param asset The address of the underlying asset to borrow.
+     * @param amount The amount to be borrowed.
+     * @param interestRateMode The interest rate mode at which the user wants to borrow: 1 for Stable, 2 for Variable.
+     * @param dstEndpointId The destination endpoint ID.
+     * @param receiver The address of the recipient.
+     */
     function borrow(
         address asset,
         uint256 amount,
@@ -35,8 +67,8 @@ contract StargateIntegration is Ownable {
     ) external payable {
         if (dstEndpointId == FLOW_ENDPOINT_ID) revert SameChainBorrow();
 
-        address stargate = stargateOFTs[asset];
-        if (stargate == address(0)) revert NotSupportedAsset();
+        address stargateOFT = stargateOFTs[asset];
+        if (stargateOFT == address(0)) revert NotSupportedAsset();
 
         IPool(POOL).borrow(
             asset,
@@ -46,23 +78,33 @@ contract StargateIntegration is Ownable {
             msg.sender
         );
 
-        IERC20(asset).approve(stargate, amount);
+        IERC20(asset).approve(stargateOFT, amount);
         (
             SendParam memory sendParam,
             MessagingFee memory messagingFee
-        ) = _prepareSendParams(stargate, dstEndpointId, amount, receiver);
+        ) = _prepareSendParams(stargateOFT, dstEndpointId, amount, receiver);
 
-        IStargate(stargate).sendToken{ value: msg.value }(sendParam, messagingFee, msg.sender);
+        IStargate(stargateOFT).sendToken{ value: msg.value }(sendParam, messagingFee, msg.sender);
+
+        emit Borrow(msg.sender, asset, stargateOFT, amount, dstEndpointId, receiver);
     }
 
+    /** 
+     * @notice Returns the estimated gas amount required to bridge a specific `amount` of the borrowed asset
+     * to the destination chain.
+     * @param stargateOFT The stargate OFT address.
+     * @param dstEndpointId The destination endpoint ID.
+     * @param amount The amount to be borrowed.
+     * @param receiver The address of the recipient.
+     */
     function estimateFee(
-        address stargate,
+        address stargateOFT,
         uint32 dstEndpointId,
         uint256 amount,
         address receiver
     ) external view returns (uint256) {
         (, MessagingFee memory messagingFee) = _prepareSendParams(
-            stargate,
+            stargateOFT,
             dstEndpointId,
             amount,
             receiver
@@ -71,8 +113,15 @@ contract StargateIntegration is Ownable {
         return messagingFee.nativeFee;
     }
 
+    /** 
+     * @dev Prepares arguments for token bridge.
+     * @param stargateOFT The stargate OFT address.
+     * @param dstEndpointId The destination endpoint ID.
+     * @param amount The amount to be borrowed.
+     * @param receiver The address of the recipient.
+     */
     function _prepareSendParams(
-        address stargate,
+        address stargateOFT,
         uint32 dstEndpointId,
         uint256 amount,
         address receiver
@@ -87,11 +136,11 @@ contract StargateIntegration is Ownable {
             oftCmd: "" // Taking a taxi mode
         });
 
-        (, , OFTReceipt memory receipt) = IStargate(stargate).quoteOFT(sendParam);
+        (, , OFTReceipt memory receipt) = IStargate(stargateOFT).quoteOFT(sendParam);
         sendParam.minAmountLD = receipt.amountReceivedLD;
 
         // Fee in native gas and ZRO token.
-        messagingFee = IStargate(stargate).quoteSend(sendParam, false);
+        messagingFee = IStargate(stargateOFT).quoteSend(sendParam, false);
     }
 
     /**

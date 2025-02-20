@@ -7,6 +7,20 @@ import { ICreditDelegationToken } from "../contracts/interfaces/ICreditDelegatio
 import { StargateIntegration } from "../contracts/StargateIntegration.sol";
 
 contract StargateIntegrationTest is Test {
+    event SetStargateOFTs(
+        address indexed asset,
+        address indexed stargateOFT
+    );
+
+    event Borrow(
+        address indexed borrower,
+        address indexed asset,
+        address indexed stargateOFT,
+        uint256 amount,
+        uint32 dstEndpointId,
+        address receiver
+    );
+
     address USDC = 0xF1815bd50389c46847f0Bda824eC8da914045D14;
     address stargateOFTUSDC = 0xAF54BE5B6eEc24d6BFACf1cce4eaF680A8239398;
     address variableDebtUSDC = 0xbD6e2ae2c8A0e3AA8f694C795cb0E7cbB6199d44;
@@ -27,9 +41,8 @@ contract StargateIntegrationTest is Test {
 
         deployer = vm.addr(1);
         // deploy StargateIntegration
-        vm.startPrank(deployer);
+        vm.prank(deployer);
         stargateIntegration = new StargateIntegration();
-        vm.stopPrank();
     }
 
     function test_BorrowUSDC() public {
@@ -48,6 +61,8 @@ contract StargateIntegrationTest is Test {
 
         vm.startPrank(user);
         ICreditDelegationToken(variableDebtUSDC).approveDelegation(address(stargateIntegration), amount);
+        vm.expectEmit(true, true, true, true);
+        emit Borrow(user, USDC, stargateOFTUSDC, amount, dstEndpointId, user);
         stargateIntegration.borrow{value: estimateFee}(USDC, amount, INTEREST_RATE_MODE, dstEndpointId, user);
     }
 
@@ -66,6 +81,9 @@ contract StargateIntegrationTest is Test {
 
         vm.startPrank(user);
         ICreditDelegationToken(variableDebtWETH).approveDelegation(address(stargateIntegration), amount);
+
+        vm.expectEmit(true, true, true, true);
+        emit Borrow(user, WETH, stargateOFTWETH, amount, dstEndpointId, user);
         stargateIntegration.borrow{value: estimateFee}(WETH, amount, INTEREST_RATE_MODE, dstEndpointId, user);
     }
 
@@ -79,7 +97,13 @@ contract StargateIntegrationTest is Test {
 
     function _setStargateOFTs() internal {
         vm.startPrank(deployer);
+
+        vm.expectEmit(true, true, false, false);
+        emit SetStargateOFTs(USDC, stargateOFTUSDC);
         stargateIntegration.setStargateOFTs(USDC, stargateOFTUSDC);
+        
+        vm.expectEmit(true, true, false, false);
+        emit SetStargateOFTs(WETH, stargateOFTWETH);
         stargateIntegration.setStargateOFTs(WETH, stargateOFTWETH);
         vm.stopPrank();
     }
