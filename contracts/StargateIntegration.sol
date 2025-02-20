@@ -6,7 +6,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { IPool } from "./interfaces/IPool.sol";
 import { IStargate, SendParam, MessagingFee, OFTReceipt } from "./interfaces/IStargate.sol";
 
-contract CrossChainVault is Ownable {
+contract StargateIntegration is Ownable {
     error ZeroAddress();
     error SameChainBorrow();
     error NotSupportedAsset();

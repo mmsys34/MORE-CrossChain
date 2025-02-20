@@ -1,6 +1,7 @@
 require("@nomicfoundation/hardhat-foundry");
 require("@nomicfoundation/hardhat-verify");
 require("dotenv").config();
+require("./tasks");
 
 module.exports = {
   solidity: {
