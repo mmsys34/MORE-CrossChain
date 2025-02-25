@@ -10,7 +10,7 @@ contract StargateIntegrationMainchain is ILayerZeroComposer, Ownable, StargateIn
     event SetStargateAddresses(
         address indexed asset,
         address indexed stargateOFT,
-        address indexed tokenMessaging
+        address indexed lzEndpoint
     );
 
     event Borrow(
@@ -34,24 +34,27 @@ contract StargateIntegrationMainchain is ILayerZeroComposer, Ownable, StargateIn
     event Supply(
         address indexed supplier,
         address indexed asset,
+        address indexed stargateOFT,
         uint256 amount
     );
 
     event Repay(
         address indexed repayer,
         address indexed asset,
-        uint256 amount
+        address indexed stargateOFT,
+        uint256 amount,
+        uint256 interestRateMode
     );
 
     error ZeroAddress();
     error NotCrossChain();
     error NotSupportedAsset();
-    error InvalidTokenMessaging();
+    error NotLZEndpoint();
 
     address internal constant POOL = 0xbC92aaC2DBBF42215248B5688eB3D3d2b32F2c8d;
 
     mapping(address =>  address) public stargateOFTs;
-    mapping(address =>  address) public tokenMessagings;
+    mapping(address =>  address) public lzEndpoints;
 
     /// @notice Constructor
     constructor() StargateIntegrationBase(msg.sender) {}
@@ -64,13 +67,13 @@ contract StargateIntegrationMainchain is ILayerZeroComposer, Ownable, StargateIn
     function setStargateAddresses(
         address asset,
         address stargateOFT,
-        address tokenMessaging
+        address lzEndpoint
     ) external onlyOwner {
         if (asset == address(0) || stargateOFT == address(0)) revert ZeroAddress();
         stargateOFTs[asset] = stargateOFT;
-        tokenMessagings[stargateOFT] = tokenMessaging;
+        lzEndpoints[stargateOFT] = lzEndpoint;
 
-        emit SetStargateAddresses(asset, stargateOFT, tokenMessaging);
+        emit SetStargateAddresses(asset, stargateOFT, lzEndpoint);
     }
 
     /**
@@ -115,6 +118,17 @@ contract StargateIntegrationMainchain is ILayerZeroComposer, Ownable, StargateIn
         emit Borrow(msg.sender, asset, stargateOFT, amount, dstEndpointId, receiver);
     }
 
+    /**
+     * @notice Withdraws an `amount` of underlying asset from the reserve to the destination chain.
+     * @param asset The address of the underlying asset to withdraw.
+     * @param mAsset The address of the mToken to burn.
+     * @param amount The underlying amount to be withdrawn.
+     *   - Send the value type(uint256).max in order to withdraw the whole aToken balance
+     * @param dstEndpointId The destination endpoint ID.
+     * @param receiver The address that will receive the underlying, same as msg.sender if the user
+     *   wants to receive it on his own wallet, or a different address if the beneficiary is a
+     *   different wallet
+     */
     function withdraw(
         address asset,
         address mAsset,
@@ -146,6 +160,7 @@ contract StargateIntegrationMainchain is ILayerZeroComposer, Ownable, StargateIn
         emit Withdraw(msg.sender, asset, stargateOFT, amount, dstEndpointId, receiver);
     }
 
+    /// @inheritdoc ILayerZeroComposer
     function lzCompose(
         address from,
         bytes32,
@@ -153,7 +168,7 @@ contract StargateIntegrationMainchain is ILayerZeroComposer, Ownable, StargateIn
         address,
         bytes calldata 
     ) external payable {
-        if (msg.sender != tokenMessagings[from]) revert InvalidTokenMessaging();
+        if (msg.sender != lzEndpoints[from]) revert NotLZEndpoint();
         uint256 amount = OFTComposeMsgCodec.amountLD(message);
         bytes memory composeMessage = OFTComposeMsgCodec.composeMsg(message);
 
@@ -173,7 +188,7 @@ contract StargateIntegrationMainchain is ILayerZeroComposer, Ownable, StargateIn
                 0
             );
 
-            emit Supply(msg.sender, asset, amount);
+            emit Supply(user, asset, from, amount);
 
         } else if (functionType == uint8(FunctionType.Repay)) {
             IERC20(asset).approve(POOL, amount);
@@ -184,7 +199,7 @@ contract StargateIntegrationMainchain is ILayerZeroComposer, Ownable, StargateIn
                 user
             );
 
-            emit Repay(msg.sender, asset, amount);
+            emit Repay(user, asset, from, amount, interestRateMode);
         }
     }
 }

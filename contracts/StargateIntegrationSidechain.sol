@@ -9,19 +9,21 @@ contract StargateIntegrationSidechain is StargateIntegrationBase {
         address indexed stargateOFT
     );
 
-    event Borrow(
-        address indexed borrower,
+    event Supply(
+        address indexed supplier,
         address indexed asset,
         address indexed stargateOFT,
         uint256 amount,
-        uint32 dstEndpointId,
-        address receiver
+        uint32 dstEndpointId
     );
 
     event Repay(
         address indexed repayer,
         address indexed asset,
-        uint256 amount
+        address indexed stargateOFT,
+        uint256 amount,
+        uint256 interestRateMode,
+        uint32 dstEndpointId
     );
 
     error ZeroAddress();
@@ -50,6 +52,13 @@ contract StargateIntegrationSidechain is StargateIntegrationBase {
         emit SetStargateOFTs(asset, stargateOFT);
     }
 
+    /**
+     * @notice Supplies an `amount` of underlying asset into the reserve pool from a different chain.
+     * @dev Always send `msg.value` for the bridge. It must be the same as the estimated fee.
+     * @param asset The address of the underlying asset to be bridged from the source chain.
+     * @param assetOnDst The address of the underlying asset to supply on the destination chain.
+     * @param amount The amount to be supplied.
+     */
     function supply(
         address asset,
         address assetOnDst,
@@ -67,8 +76,20 @@ contract StargateIntegrationSidechain is StargateIntegrationBase {
         IERC20(asset).transferFrom(msg.sender, address(this), amount);
         IERC20(asset).approve(stargateOFT, amount);
         IStargate(stargateOFT).sendToken{ value: msg.value }(sendParam, messagingFee, msg.sender);
+
+        emit Supply(msg.sender, asset, stargateOFT, amount, FLOW_ENDPOINT_ID);
     }
 
+    /**
+     * @notice Repays a borrowed `amount` on a specific reserve, burning the equivalent debt tokens owned
+     * @dev Always send `msg.value` for the bridge. It must be the same as the estimated fee.
+     * @param asset The address of the borrowed underlying asset on the source chain.
+     * @param assetOnDst The address of the underlying asset to repay on the destination chain.
+     * @param amount The amount to repay. Send the value type(uint256).max in order to repay the whole debt
+     * for `asset` on the specific `debtMode`.
+     * @param interestRateMode The interest rate mode at of the debt the user wants to repay:
+     * 1 for Stable, 2 for Variable.
+     */
     function repay(
         address asset,
         address assetOnDst,
@@ -87,5 +108,7 @@ contract StargateIntegrationSidechain is StargateIntegrationBase {
         IERC20(asset).transferFrom(msg.sender, address(this), amount);
         IERC20(asset).approve(stargateOFT, amount);
         IStargate(stargateOFT).sendToken{ value: msg.value }(sendParam, messagingFee, msg.sender);
+
+        emit Repay(msg.sender, asset, stargateOFT, amount, interestRateMode, FLOW_ENDPOINT_ID);
     }
 }

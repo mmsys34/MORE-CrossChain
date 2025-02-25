@@ -52,4 +52,28 @@ contract StargateIntegrationSidechainTest is Test {
             usdc, usdcOnFlow, amount, 2
         );
     }
+
+    function test_SupplyUSDC() public {
+        uint256 amount = 1e6;
+        stargateIntegration.setStargateOFTs(usdc, stgOFTUSDC);
+
+        deal(user, 1 ether);
+        deal(address(usdc), user, 100e6);
+        vm.startPrank(user);
+
+        bytes memory composeMsg = abi.encode(0, msg.sender, usdcOnFlow, 0);
+        uint256 estimateFee = stargateIntegration.estimateFee(
+            stgOFTUSDC,
+            FLOW_ENDPOINT_ID,
+            amount,
+            address(stargateIntegration),
+            composeMsg
+        );
+
+        IERC20(usdc).approve(address(stargateIntegration), amount);
+
+        stargateIntegration.supply{value: estimateFee}(
+            usdc, usdcOnFlow, amount
+        );
+    }
 }
