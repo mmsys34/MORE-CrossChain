@@ -1,1 +1,2 @@
-require("./deploy-stargate-integration");
+require("./deploy-integration-mainchain");
+require("./deploy-integration-sidechain");
