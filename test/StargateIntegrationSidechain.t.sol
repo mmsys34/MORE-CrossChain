@@ -61,7 +61,7 @@ contract StargateIntegrationSidechainTest is Test {
         deal(address(usdc), user, 100e6);
         vm.startPrank(user);
 
-        bytes memory composeMsg = abi.encode(0, msg.sender, usdcOnFlow, 0);
+        bytes memory composeMsg = abi.encode(0, user, usdcOnFlow, 0);
         uint256 estimateFee = stargateIntegration.estimateFee(
             stgOFTUSDC,
             FLOW_ENDPOINT_ID,

@@ -179,8 +179,8 @@ contract StargateIntegrationMainchain is ILayerZeroComposer, Ownable, StargateIn
             uint256 interestRateMode
         ) = abi.decode(composeMessage, (uint8, address, address, uint256));
 
+        IERC20(asset).approve(POOL, amount);
         if (functionType == uint8(FunctionType.Supply)) {
-            IERC20(asset).approve(POOL, amount);
             IPool(POOL).supply(
                 asset,
                 amount,
@@ -191,7 +191,6 @@ contract StargateIntegrationMainchain is ILayerZeroComposer, Ownable, StargateIn
             emit Supply(user, asset, from, amount);
 
         } else if (functionType == uint8(FunctionType.Repay)) {
-            IERC20(asset).approve(POOL, amount);
             IPool(POOL).repay(
                 asset,
                 amount,
