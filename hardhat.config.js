@@ -1,6 +1,6 @@
 require("@nomicfoundation/hardhat-foundry");
 require("@nomicfoundation/hardhat-verify");
-require("@nomicfoundation/hardhat-ethers");
+require("@openzeppelin/hardhat-upgrades");
 require("dotenv").config();
 require("./tasks");
 
