@@ -1,2 +1,2 @@
-require("./deploy-integration-mainchain");
-require("./deploy-integration-sidechain");
+require("./deploy-adapter-mainchain");
+require("./deploy-adapter-sidechain");

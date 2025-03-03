@@ -16,8 +16,7 @@ contract StargateAdapterSidechainTest is Test {
 
     address usdc = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     address stgOFTUSDC = 0xc026395860Db2d07ee33e05fE50ed7bD583189C7;
-
-    address usdcOnFlow = 0xF1815bd50389c46847f0Bda824eC8da914045D14;
+    address stgOFTNative = 0x77b2043768d28E9C9aB44E1aBfC95944bcE57931;
 
     address user = 0x86C1F1B7D3e91603D7f96871F108121878F483cd;
 
@@ -32,53 +31,76 @@ contract StargateAdapterSidechainTest is Test {
         address proxyStgAdapterSidechain  = address(new TransparentUpgradeableProxy(implStgAdapterSidechain, address(this), ""));
         stargateAdapterSidechain = StargateAdapterSidechain(proxyStgAdapterSidechain);
         stargateAdapterSidechain.initialize(address(proxyStgAdapterMainchain));
-    }
 
-    function test_RepayUSDC() public {
-        uint256 amount = 1e6;
-        stargateAdapterSidechain.setStargateOFTs(usdc, stgOFTUSDC);
-
+        stargateAdapterSidechain.setStargateOFTs(address(0), stgOFTNative, true);
+        stargateAdapterSidechain.setStargateOFTs(usdc, stgOFTUSDC, true);
+    
         deal(user, 1 ether);
         deal(address(usdc), user, 100e6);
-        vm.startPrank(user);
-
-        bytes memory composeMsg = abi.encode(1, msg.sender, usdcOnFlow, 2);
-        uint256 estimateFee = stargateAdapterSidechain.estimateFee(
-            stgOFTUSDC,
-            FLOW_ENDPOINT_ID,
-            amount,
-            address(stargateAdapterSidechain),
-            composeMsg
-        );
-
-        IERC20(usdc).approve(address(stargateAdapterSidechain), amount);
-
-        stargateAdapterSidechain.repay{value: estimateFee}(
-            usdc, usdcOnFlow, amount, 2
-        );
     }
 
     function test_SupplyUSDC() public {
         uint256 amount = 1e6;
-        stargateAdapterSidechain.setStargateOFTs(usdc, stgOFTUSDC);
-
-        deal(user, 1 ether);
-        deal(address(usdc), user, 100e6);
-        vm.startPrank(user);
-
-        bytes memory composeMsg = abi.encode(0, user, usdcOnFlow, 0);
+        bytes memory composeMsg = abi.encode(0, user, 0);
         uint256 estimateFee = stargateAdapterSidechain.estimateFee(
             stgOFTUSDC,
             FLOW_ENDPOINT_ID,
             amount,
-            address(stargateAdapterSidechain),
+            stargateAdapterSidechain.stgAdapterMainchain(),
             composeMsg
         );
 
+        vm.startPrank(user);
         IERC20(usdc).approve(address(stargateAdapterSidechain), amount);
+        stargateAdapterSidechain.supply{value: estimateFee}(usdc, amount);
+    }
 
-        stargateAdapterSidechain.supply{value: estimateFee}(
-            usdc, usdcOnFlow, amount
+    function test_SupplyETH() public {
+        uint256 amount = 1e17;
+        bytes memory composeMsg = abi.encode(0, user, 0);
+
+        uint256 estimateFee = stargateAdapterSidechain.estimateFee(
+            stgOFTNative,
+            FLOW_ENDPOINT_ID,
+            amount,
+            stargateAdapterSidechain.stgAdapterMainchain(),
+            composeMsg
         );
+
+        vm.prank(user);
+        stargateAdapterSidechain.supply{value: estimateFee}(address(0), amount);
+    }
+
+    function test_RepayUSDC() public {
+        uint256 amount = 1e6;
+        bytes memory composeMsg = abi.encode(1, msg.sender, 2);
+
+        uint256 estimateFee = stargateAdapterSidechain.estimateFee(
+            stgOFTUSDC,
+            FLOW_ENDPOINT_ID,
+            amount,
+            stargateAdapterSidechain.stgAdapterMainchain(),
+            composeMsg
+        );
+
+        vm.startPrank(user);
+        IERC20(usdc).approve(address(stargateAdapterSidechain), amount);
+        stargateAdapterSidechain.repay{value: estimateFee}(usdc, amount, 2);
+    }
+
+    function test_RepayWETH() public {
+        uint256 amount = 1e15;
+        bytes memory composeMsg = abi.encode(1, msg.sender, 2);
+
+        uint256 estimateFee = stargateAdapterSidechain.estimateFee(
+            stgOFTNative,
+            FLOW_ENDPOINT_ID,
+            amount,
+            stargateAdapterSidechain.stgAdapterMainchain(),
+            composeMsg
+        );
+
+        vm.prank(user);
+        stargateAdapterSidechain.repay{value: estimateFee}(address(0), amount, 2);
     }
 }

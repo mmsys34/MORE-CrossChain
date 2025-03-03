@@ -13,10 +13,10 @@ contract StargateAdapterMainchainTest is Test {
     // the identifiers of the forks
     uint256 flowFork;
 
-    event SetStargateAddresses(
+    event SetStargateOFTs(
         address indexed asset,
         address indexed stargateOFT,
-        address indexed tokenMessaging
+        bool isActive
     );
 
     event Borrow(
@@ -57,7 +57,7 @@ contract StargateAdapterMainchainTest is Test {
         address proxyStargateAdapter = address(new TransparentUpgradeableProxy(implStargateAdapter, deployer, ""));
         stargateAdapter = StargateAdapterMainchain(proxyStargateAdapter);
         vm.prank(deployer);
-        stargateAdapter.initialize();
+        stargateAdapter.initialize(lzEndpointOnFlow);
 
         deal(usdc, user, 100e6);
         vm.startPrank(user);
@@ -83,7 +83,7 @@ contract StargateAdapterMainchainTest is Test {
 
         _revertCases(usdc, amount, dstEndpointId, estimateFee);
 
-        _setStargateAddresses();
+        _setStargateOFTs();
 
         vm.startPrank(user);
         ICreditDelegationToken(variableDebtUSDC).approveDelegation(address(stargateAdapter), amount);
@@ -104,7 +104,7 @@ contract StargateAdapterMainchainTest is Test {
         );
         _revertCases(weth, amount, dstEndpointId, estimateFee);
 
-        _setStargateAddresses();
+        _setStargateOFTs();
 
         vm.startPrank(user);
         ICreditDelegationToken(variableDebtWETH).approveDelegation(address(stargateAdapter), amount);
@@ -127,7 +127,7 @@ contract StargateAdapterMainchainTest is Test {
 
         _revertCases(usdc, amountToWithdraw, dstEndpointId, estimateFee);
 
-        _setStargateAddresses();
+        _setStargateOFTs();
 
         vm.startPrank(user);
         IERC20(mStgUSDC).approve(address(stargateAdapter), amountToWithdraw);
@@ -137,7 +137,7 @@ contract StargateAdapterMainchainTest is Test {
     function test_LzCompose() public {
         address stgIntegration = 0xafD01A1D038f51DE3Aa65e45869Eb85511c86E5D;
 
-        _setStargateAddresses();
+        _setStargateOFTs();
 
         vm.startPrank(lzEndpointOnFlow);
         bytes memory message = vm.parseBytes("0x000000000000008a0000759500000000000000000000000000000000000000000000000000000000000974a200000000000000000000000068bd14c251e35c1af9be0f80d4aa66053953a9fd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000086c1f1b7d3e91603d7f96871f108121878f483cd000000000000000000000000f1815bd50389c46847f0bda824ec8da914045d140000000000000000000000000000000000000000000000000000000000000000");
@@ -158,16 +158,16 @@ contract StargateAdapterMainchainTest is Test {
         stargateAdapter.borrow{value: estimateFee}(asset, amount, INTEREST_RATE_MODE, dstEndpointId, user);
     }
 
-    function _setStargateAddresses() internal {
+    function _setStargateOFTs() internal {
         vm.startPrank(deployer);
 
         vm.expectEmit(true, true, false, false);
-        emit SetStargateAddresses(usdc, stargateOFTUSDC, lzEndpointOnFlow);
-        stargateAdapter.setStargateAddresses(usdc, stargateOFTUSDC, lzEndpointOnFlow);
+        emit SetStargateOFTs(usdc, stargateOFTUSDC, true);
+        stargateAdapter.setStargateOFTs(usdc, stargateOFTUSDC, true);
         
         vm.expectEmit(true, true, false, false);
-        emit SetStargateAddresses(weth, stargateOFTWETH, lzEndpointOnFlow);
-        stargateAdapter.setStargateAddresses(weth, stargateOFTWETH, lzEndpointOnFlow);
+        emit SetStargateOFTs(weth, stargateOFTWETH, true);
+        stargateAdapter.setStargateOFTs(weth, stargateOFTWETH, true);
         vm.stopPrank();
     }
 }

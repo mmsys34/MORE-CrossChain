@@ -7,11 +7,7 @@ import { IPool } from "./interfaces/IPool.sol";
 import "./StargateAdapterBase.sol";
 
 contract StargateAdapterMainchain is ILayerZeroComposer, StargateAdapterBase {
-    event SetStargateAddresses(
-        address indexed asset,
-        address indexed stargateOFT,
-        address indexed lzEndpoint
-    );
+    using SafeERC20 for IERC20;
 
     event Borrow(
         address indexed borrower,
@@ -46,41 +42,23 @@ contract StargateAdapterMainchain is ILayerZeroComposer, StargateAdapterBase {
         uint256 interestRateMode
     );
 
-    error ZeroAddress();
     error NotCrossChain();
-    error NotSupportedAsset();
-    error NotLZEndpoint();
+    error NotLzEndpoint();
+    error NotStargateOFT();
 
-    address internal constant POOL = 0xbC92aaC2DBBF42215248B5688eB3D3d2b32F2c8d;
-
-    mapping(address =>  address) public stargateOFTs;
-    mapping(address =>  address) public lzEndpoints;
+    address public constant POOL = 0xbC92aaC2DBBF42215248B5688eB3D3d2b32F2c8d;
+    address public lzEndpoint;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
 
-    function initialize() public initializer {
+    function initialize(address lzEndpoint_) public initializer {
         __Ownable_init(msg.sender);
         __StargateAdapterBase_init();
-    }
 
-    /**
-     * @notice Sets Stargate OFT addresses for each underlying asset to be borrowed.
-     * @param asset The underlying asset to be borrowed.
-     * @param stargateOFT The stargate OFT address.
-     */
-    function setStargateAddresses(
-        address asset,
-        address stargateOFT,
-        address lzEndpoint
-    ) external onlyOwner {
-        if (asset == address(0) || stargateOFT == address(0)) revert ZeroAddress();
-        stargateOFTs[asset] = stargateOFT;
-        lzEndpoints[stargateOFT] = lzEndpoint;
-
-        emit SetStargateAddresses(asset, stargateOFT, lzEndpoint);
+        lzEndpoint = lzEndpoint_;
     }
 
     /**
@@ -100,10 +78,11 @@ contract StargateAdapterMainchain is ILayerZeroComposer, StargateAdapterBase {
         uint32 dstEndpointId,
         address receiver
     ) external payable {
+        if (asset == address(0)) revert ZeroAddress();
         if (dstEndpointId == FLOW_ENDPOINT_ID) revert NotCrossChain();
 
         address stargateOFT = stargateOFTs[asset];
-        if (stargateOFT == address(0)) revert NotSupportedAsset();
+        _onlyWhitelisted(stargateOFT);
 
         IPool(POOL).borrow(
             asset,
@@ -143,12 +122,13 @@ contract StargateAdapterMainchain is ILayerZeroComposer, StargateAdapterBase {
         uint32 dstEndpointId,
         address receiver
     ) external payable {
+        if (asset == address(0)) revert ZeroAddress();
         if (dstEndpointId == FLOW_ENDPOINT_ID) revert NotCrossChain();
 
         address stargateOFT = stargateOFTs[asset];
-        if (stargateOFT == address(0)) revert NotSupportedAsset();
+        _onlyWhitelisted(stargateOFT);
 
-        IERC20(mAsset).transferFrom(msg.sender, address(this), amount);
+        IERC20(mAsset).safeTransferFrom(msg.sender, address(this), amount);
         IPool(POOL).withdraw(
             asset,
             amount,
@@ -175,17 +155,19 @@ contract StargateAdapterMainchain is ILayerZeroComposer, StargateAdapterBase {
         address,
         bytes calldata 
     ) external payable {
-        if (msg.sender != lzEndpoints[from]) revert NotLZEndpoint();
+        if (msg.sender != lzEndpoint) revert NotLzEndpoint();
+        if (!isWhitelisted[from]) revert NotStargateOFT();
+
         uint256 amount = OFTComposeMsgCodec.amountLD(message);
         bytes memory composeMessage = OFTComposeMsgCodec.composeMsg(message);
 
         (
             uint8 functionType,
             address user,
-            address asset,
             uint256 interestRateMode
-        ) = abi.decode(composeMessage, (uint8, address, address, uint256));
+        ) = abi.decode(composeMessage, (uint8, address, uint256));
 
+        address asset = IStargate(from).token();
         IERC20(asset).approve(POOL, amount);
         if (functionType == uint8(FunctionType.Supply)) {
             IPool(POOL).supply(
@@ -194,7 +176,6 @@ contract StargateAdapterMainchain is ILayerZeroComposer, StargateAdapterBase {
                 user,
                 0
             );
-
             emit Supply(user, asset, from, amount);
 
         } else if (functionType == uint8(FunctionType.Repay)) {
@@ -204,7 +185,6 @@ contract StargateAdapterMainchain is ILayerZeroComposer, StargateAdapterBase {
                 interestRateMode,
                 user
             );
-
             emit Repay(user, asset, from, amount, interestRateMode);
         }
     }

@@ -22,7 +22,7 @@ library Helpers {
         bytes memory composeMsg
     ) internal view returns (SendParam memory sendParam, MessagingFee memory messagingFee) {
         bytes memory extraOptions = composeMsg.length > 0
-        ? OptionsBuilder.newOptions().addExecutorLzComposeOption(0, 200_000, 0) // compose gas limit
+        ? OptionsBuilder.newOptions().addExecutorLzComposeOption(0, 300_000, 0) // compose gas limit
         : bytes("");
 
         sendParam = SendParam({
