@@ -2,11 +2,11 @@
 pragma solidity ^0.8.20;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { IStargate, SendParam, MessagingFee } from "./interfaces/IStargate.sol";
 import { Helpers } from "./libraries/Helpers.sol";
 
-abstract contract StargateIntegrationBase is Ownable {
+abstract contract StargateAdapterBase is OwnableUpgradeable {
     enum FunctionType {
         Supply,
         Repay
@@ -14,7 +14,7 @@ abstract contract StargateIntegrationBase is Ownable {
 
     uint32 internal constant FLOW_ENDPOINT_ID = 30336;
 
-    constructor(address initialOwner) Ownable(initialOwner) {}
+    function __StargateAdapterBase_init() internal onlyInitializing {}
 
     /** 
      * @notice Returns the estimated gas amount required to bridge a specific `amount` of the borrowed asset

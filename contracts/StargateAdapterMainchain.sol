@@ -4,9 +4,9 @@ pragma solidity ^0.8.20;
 import { ILayerZeroComposer } from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroComposer.sol";
 import { OFTComposeMsgCodec } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTComposeMsgCodec.sol";
 import { IPool } from "./interfaces/IPool.sol";
-import "./StargateIntegrationBase.sol";
+import "./StargateAdapterBase.sol";
 
-contract StargateIntegrationMainchain is ILayerZeroComposer, Ownable, StargateIntegrationBase {
+contract StargateAdapterMainchain is ILayerZeroComposer, StargateAdapterBase {
     event SetStargateAddresses(
         address indexed asset,
         address indexed stargateOFT,
@@ -56,8 +56,15 @@ contract StargateIntegrationMainchain is ILayerZeroComposer, Ownable, StargateIn
     mapping(address =>  address) public stargateOFTs;
     mapping(address =>  address) public lzEndpoints;
 
-    /// @notice Constructor
-    constructor() StargateIntegrationBase(msg.sender) {}
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize() public initializer {
+        __Ownable_init(msg.sender);
+        __StargateAdapterBase_init();
+    }
 
     /**
      * @notice Sets Stargate OFT addresses for each underlying asset to be borrowed.

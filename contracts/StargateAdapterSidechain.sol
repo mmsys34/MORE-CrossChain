@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./StargateIntegrationBase.sol";
+import "./StargateAdapterBase.sol";
 
-contract StargateIntegrationSidechain is StargateIntegrationBase {
+contract StargateAdapterSidechain is StargateAdapterBase {
     event SetStargateOFTs(
         address indexed asset,
         address indexed stargateOFT
@@ -29,12 +29,19 @@ contract StargateIntegrationSidechain is StargateIntegrationBase {
     error ZeroAddress();
     error NotSupportedAsset();
 
-    address internal immutable stgIntegrationMainchain;
+    address public stgAdapterMainchain;
     mapping(address =>  address) public stargateOFTs;
 
-    /// @notice Constructor
-    constructor(address stgIntegrationMainchain_) StargateIntegrationBase(msg.sender) {
-        stgIntegrationMainchain = stgIntegrationMainchain_;
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address stgAdapterMainchain_) public initializer {
+        __Ownable_init(msg.sender);
+        __StargateAdapterBase_init();
+
+        stgAdapterMainchain = stgAdapterMainchain_;
     }
 
     /**
@@ -71,7 +78,7 @@ contract StargateIntegrationSidechain is StargateIntegrationBase {
         (
             SendParam memory sendParam,
             MessagingFee memory messagingFee
-        ) = Helpers.prepareSendParams(stargateOFT, FLOW_ENDPOINT_ID, amount, stgIntegrationMainchain, composeMsg);
+        ) = Helpers.prepareSendParams(stargateOFT, FLOW_ENDPOINT_ID, amount, stgAdapterMainchain, composeMsg);
 
         IERC20(asset).transferFrom(msg.sender, address(this), amount);
         IERC20(asset).approve(stargateOFT, amount);
@@ -103,7 +110,7 @@ contract StargateIntegrationSidechain is StargateIntegrationBase {
         (
             SendParam memory sendParam,
             MessagingFee memory messagingFee
-        ) = Helpers.prepareSendParams(stargateOFT, FLOW_ENDPOINT_ID, amount, stgIntegrationMainchain, composeMsg);
+        ) = Helpers.prepareSendParams(stargateOFT, FLOW_ENDPOINT_ID, amount, stgAdapterMainchain, composeMsg);
 
         IERC20(asset).transferFrom(msg.sender, address(this), amount);
         IERC20(asset).approve(stargateOFT, amount);
