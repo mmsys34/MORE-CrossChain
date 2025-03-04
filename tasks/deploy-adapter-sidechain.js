@@ -3,8 +3,9 @@ const { TASK_COMPILE } = require("hardhat/builtin-tasks/task-names");
 
 task('deploy-adapter-sidechain', 'Deploy StargateAdapterSidechain')
     .addParam('stgAdapterMainchain', 'StargateAdapterMainchain address', '', types.string)
+    .addParam('weth', 'Wrapped Ether address', '', types.string)
     .setAction(
-        async ({ stgAdapterMainchain }, { ethers, run, network, upgrades }) => {
+        async ({ stgAdapterMainchain, weth }, { ethers, run, network, upgrades }) => {
             await run(TASK_COMPILE);
 
             if (network.name == "flow" || network.name == "flowTestnet") {
@@ -18,7 +19,7 @@ task('deploy-adapter-sidechain', 'Deploy StargateAdapterSidechain')
             }
 
             const StargateAdapterSidechain = await ethers.getContractFactory("StargateAdapterSidechain");
-            const stargateAdapterSidechain = await upgrades.deployProxy(StargateAdapterSidechain, [stgAdapterMainchain]);
+            const stargateAdapterSidechain = await upgrades.deployProxy(StargateAdapterSidechain, [stgAdapterMainchain, weth]);
             await stargateAdapterSidechain.waitForDeployment();
 
             console.log("StargateAdapterSidechain deployed to ", await stargateAdapterSidechain.getAddress());

@@ -15,6 +15,7 @@ contract StargateAdapterSidechainTest is Test {
     StargateAdapterSidechain public stargateAdapterSidechain;
 
     address usdc = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    address weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address stgOFTUSDC = 0xc026395860Db2d07ee33e05fE50ed7bD583189C7;
     address stgOFTNative = 0x77b2043768d28E9C9aB44E1aBfC95944bcE57931;
 
@@ -30,9 +31,9 @@ contract StargateAdapterSidechainTest is Test {
         address implStgAdapterSidechain = address(new StargateAdapterSidechain());
         address proxyStgAdapterSidechain  = address(new TransparentUpgradeableProxy(implStgAdapterSidechain, address(this), ""));
         stargateAdapterSidechain = StargateAdapterSidechain(proxyStgAdapterSidechain);
-        stargateAdapterSidechain.initialize(address(proxyStgAdapterMainchain));
+        stargateAdapterSidechain.initialize(address(proxyStgAdapterMainchain), weth);
 
-        stargateAdapterSidechain.setStargateOFTs(address(0), stgOFTNative, true);
+        stargateAdapterSidechain.setStargateOFTs(weth, stgOFTNative, true);
         stargateAdapterSidechain.setStargateOFTs(usdc, stgOFTUSDC, true);
     
         deal(user, 1 ether);
@@ -68,7 +69,7 @@ contract StargateAdapterSidechainTest is Test {
         );
 
         vm.prank(user);
-        stargateAdapterSidechain.supply{value: estimateFee}(address(0), amount);
+        stargateAdapterSidechain.supply{value: estimateFee}(weth, amount);
     }
 
     function test_RepayUSDC() public {
@@ -101,6 +102,6 @@ contract StargateAdapterSidechainTest is Test {
         );
 
         vm.prank(user);
-        stargateAdapterSidechain.repay{value: estimateFee}(address(0), amount, 2);
+        stargateAdapterSidechain.repay{value: estimateFee}(weth, amount, 2);
     }
 }

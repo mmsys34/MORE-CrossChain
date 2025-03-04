@@ -24,17 +24,19 @@ contract StargateAdapterSidechain is StargateAdapterBase {
     );
 
     address public stgAdapterMainchain;
+    address public weth;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
 
-    function initialize(address stgAdapterMainchain_) public initializer {
+    function initialize(address stgAdapterMainchain_, address weth_) public initializer {
         __Ownable_init(msg.sender);
         __StargateAdapterBase_init();
 
         stgAdapterMainchain = stgAdapterMainchain_;
+        weth = weth_;
     }
 
     /**
@@ -47,6 +49,7 @@ contract StargateAdapterSidechain is StargateAdapterBase {
         address asset,
         uint256 amount
     ) external payable {
+        if (asset == address(0)) revert ZeroAddress();
         address stargateOFT = stargateOFTs[asset];
         _onlyWhitelisted(stargateOFT);
 
@@ -56,7 +59,7 @@ contract StargateAdapterSidechain is StargateAdapterBase {
             MessagingFee memory messagingFee
         ) = Helpers.prepareSendParams(stargateOFT, FLOW_ENDPOINT_ID, amount, stgAdapterMainchain, composeMsg);
 
-        if (asset != address(0)) {
+        if (asset != weth) {
             IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
             IERC20(asset).approve(stargateOFT, amount);
         }
@@ -79,6 +82,7 @@ contract StargateAdapterSidechain is StargateAdapterBase {
         uint256 amount,
         uint256 interestRateMode
     ) external payable {
+        if (asset == address(0)) revert ZeroAddress();
         address stargateOFT = stargateOFTs[asset];
         _onlyWhitelisted(stargateOFT);
 
@@ -88,7 +92,7 @@ contract StargateAdapterSidechain is StargateAdapterBase {
             MessagingFee memory messagingFee
         ) = Helpers.prepareSendParams(stargateOFT, FLOW_ENDPOINT_ID, amount, stgAdapterMainchain, composeMsg);
 
-        if (asset != address(0)) {
+        if (asset != weth) {
             IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
             IERC20(asset).approve(stargateOFT, amount);
         }
