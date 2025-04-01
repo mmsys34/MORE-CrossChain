@@ -35,6 +35,7 @@ contract StargateAdapterMainchainTest is Test {
 
     address weth = 0x2F6F07CDcf3588944Bf4C42aC74ff24bF56e7590;
     address stargateOFTWETH = 0x45f1A95A4D3f3836523F5c83673c797f4d4d263B;
+    address mStgWETH = 0xaD412305cF8aD9545759466F3d889438598F773F;
     address variableDebtWETH = 0x152F64483b8253E426ad4b6F600096f73b727D84;
 
     address lzEndpointOnFlow = 0xcb566e3B6934Fa77258d68ea18E931fa75e1aaAa;
@@ -59,7 +60,10 @@ contract StargateAdapterMainchainTest is Test {
         vm.prank(deployer);
         stargateAdapter.initialize(lzEndpointOnFlow);
 
+        deal(user, 1 ether);
         deal(usdc, user, 100e6);
+        deal(weth, user, 1e18);
+
         vm.startPrank(user);
         IERC20(usdc).approve(POOL, 50e6);
         IPool(POOL).supply(
@@ -68,22 +72,31 @@ contract StargateAdapterMainchainTest is Test {
             user,
             0
         );
+
+        IERC20(weth).approve(POOL, 1e18);
+        IPool(POOL).supply(
+            weth,
+            1e18,
+            user,
+            0
+        );
     }
 
     function test_BorrowUSDC() public {
         uint256 amount = 1e6;
         uint32 dstEndpointId = 30110; // Arbitrum
+
+        _revertCases(usdc, amount, dstEndpointId, 1 ether);
+
+        _setStargateOFTs();
+
         uint256 estimateFee = stargateAdapter.estimateFee(
-            stargateOFTUSDC,
+            usdc,
             dstEndpointId,
             amount,
             user,
             new bytes(0)
         );
-
-        _revertCases(usdc, amount, dstEndpointId, estimateFee);
-
-        _setStargateOFTs();
 
         vm.startPrank(user);
         ICreditDelegationToken(variableDebtUSDC).approveDelegation(address(stargateAdapter), amount);
@@ -95,16 +108,17 @@ contract StargateAdapterMainchainTest is Test {
     function test_BorrowWETH() public {
         uint256 amount = 3e14;
         uint32 dstEndpointId = 30101; // Mainnet
+        _revertCases(weth, amount, dstEndpointId, 1 ether);
+
+        _setStargateOFTs();
+
         uint256 estimateFee = stargateAdapter.estimateFee(
-            stargateOFTWETH,
+            weth,
             dstEndpointId,
             amount,
             user,
             new bytes(0)
         );
-        _revertCases(weth, amount, dstEndpointId, estimateFee);
-
-        _setStargateOFTs();
 
         vm.startPrank(user);
         ICreditDelegationToken(variableDebtWETH).approveDelegation(address(stargateAdapter), amount);
@@ -117,37 +131,41 @@ contract StargateAdapterMainchainTest is Test {
     function test_WithdrawUSDC() public {
         uint256 amountToWithdraw = 10e6;
         uint32 dstEndpointId = 30101; // Mainnet
+
+        _revertCases(usdc, amountToWithdraw, dstEndpointId, 1 ether);
+
+        _setStargateOFTs();
+
         uint256 estimateFee = stargateAdapter.estimateFee(
-            stargateOFTUSDC,
+            usdc,
             dstEndpointId,
             amountToWithdraw,
             user,
             new bytes(0)
         );
 
-        _revertCases(usdc, amountToWithdraw, dstEndpointId, estimateFee);
-
-        _setStargateOFTs();
-
         vm.startPrank(user);
         IERC20(mStgUSDC).approve(address(stargateAdapter), amountToWithdraw);
         stargateAdapter.withdraw{value: estimateFee}(usdc, mStgUSDC, amountToWithdraw, dstEndpointId, user);
     }
 
-    function test_LzCompose() public {
-        address stgIntegration = 0xafD01A1D038f51DE3Aa65e45869Eb85511c86E5D;
+    function test_WithdrawETH() public {
+        uint256 amountToWithdraw = 1e14;
+        uint32 dstEndpointId = 30101; // Mainnet
 
         _setStargateOFTs();
 
-        vm.startPrank(lzEndpointOnFlow);
-        bytes memory message = vm.parseBytes("0x000000000000008a0000759500000000000000000000000000000000000000000000000000000000000974a200000000000000000000000068bd14c251e35c1af9be0f80d4aa66053953a9fd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000086c1f1b7d3e91603d7f96871f108121878f483cd000000000000000000000000f1815bd50389c46847f0bda824ec8da914045d140000000000000000000000000000000000000000000000000000000000000000");
-        StargateAdapterMainchain(stgIntegration).lzCompose(
-            0xAF54BE5B6eEc24d6BFACf1cce4eaF680A8239398,
-            0x99e95f3f9e20d70d0102fe45877c1a89e8c8aad76b70c413acdf201ae4ac48b7,
-            message,
-            0xa20DB4Ffe74A31D17fc24BD32a7DD7555441058e,
+        uint256 estimateFee = stargateAdapter.estimateFee(
+            weth,
+            dstEndpointId,
+            amountToWithdraw,
+            user,
             new bytes(0)
         );
+
+        vm.startPrank(user);
+        IERC20(mStgWETH).approve(address(stargateAdapter), amountToWithdraw);
+        stargateAdapter.withdraw{value: estimateFee}(weth, mStgWETH, amountToWithdraw, dstEndpointId, user);
     }
 
     function _revertCases(address asset, uint256 amount, uint32 dstEndpointId, uint256 estimateFee) internal {

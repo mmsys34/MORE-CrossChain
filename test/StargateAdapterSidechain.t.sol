@@ -44,7 +44,7 @@ contract StargateAdapterSidechainTest is Test {
         uint256 amount = 1e6;
         bytes memory composeMsg = abi.encode(0, user, 0);
         uint256 estimateFee = stargateAdapterSidechain.estimateFee(
-            stgOFTUSDC,
+            usdc,
             FLOW_ENDPOINT_ID,
             amount,
             stargateAdapterSidechain.stgAdapterMainchain(),
@@ -61,7 +61,7 @@ contract StargateAdapterSidechainTest is Test {
         bytes memory composeMsg = abi.encode(0, user, 0);
 
         uint256 estimateFee = stargateAdapterSidechain.estimateFee(
-            stgOFTNative,
+            weth,
             FLOW_ENDPOINT_ID,
             amount,
             stargateAdapterSidechain.stgAdapterMainchain(),
@@ -77,7 +77,7 @@ contract StargateAdapterSidechainTest is Test {
         bytes memory composeMsg = abi.encode(1, msg.sender, 2);
 
         uint256 estimateFee = stargateAdapterSidechain.estimateFee(
-            stgOFTUSDC,
+            usdc,
             FLOW_ENDPOINT_ID,
             amount,
             stargateAdapterSidechain.stgAdapterMainchain(),
@@ -94,7 +94,7 @@ contract StargateAdapterSidechainTest is Test {
         bytes memory composeMsg = abi.encode(1, msg.sender, 2);
 
         uint256 estimateFee = stargateAdapterSidechain.estimateFee(
-            stgOFTNative,
+            weth,
             FLOW_ENDPOINT_ID,
             amount,
             stargateAdapterSidechain.stgAdapterMainchain(),
