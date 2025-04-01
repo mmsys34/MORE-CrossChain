@@ -48,9 +48,9 @@ abstract contract StargateAdapterBase is OwnableUpgradeable {
 
     /// @dev Recovers the token sent to this contract by mistake
     /// @dev only owner
-    /// @param token the token to recover. if 0x0 then it is native token
-    /// @param to the address to send the token to
-    /// @param amount the amount to send
+    /// @param token The token to recover. if 0x0 then it is native token
+    /// @param to The address to send the token to
+    /// @param amount The amount to send
     function recoverToken(address token, address to, uint256 amount) external onlyOwner {
         if (to == address(0)) revert ZeroAddress();
         IERC20(token).safeTransfer(to, amount);
@@ -61,18 +61,21 @@ abstract contract StargateAdapterBase is OwnableUpgradeable {
     /** 
      * @notice Returns the estimated gas amount required to bridge a specific `amount` of the borrowed asset
      * to the destination chain.
-     * @param stargateOFT The stargate OFT address.
+     * @param asset The token address to bridge. Use wrapped token address for native coin.
      * @param dstEndpointId The destination endpoint ID.
      * @param amount The amount to be borrowed.
      * @param receiver The address of the recipient.
      */
     function estimateFee(
-        address stargateOFT,
+        address asset,
         uint32 dstEndpointId,
         uint256 amount,
         address receiver,
         bytes memory composeMsg
     ) external view returns (uint256) {
+        address stargateOFT = stargateOFTs[asset];
+        _onlyWhitelisted(stargateOFT);
+
         (SendParam memory sendParam, MessagingFee memory messagingFee) = Helpers.prepareSendParams(
             stargateOFT,
             dstEndpointId,
