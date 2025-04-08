@@ -50,7 +50,7 @@ module.exports = {
   etherscan: {
     apiKey: {
       mainnet: process.env.ETH_API_KEY,
-      arbitrum: process.env.ARB_API_KEY,
+      arbitrumOne: process.env.ARB_API_KEY,
       flow: "abc",
       flowTestnet: "abc"
     },

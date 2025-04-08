@@ -1,11 +1,11 @@
 const { task } = require("hardhat/config");
 const { TASK_COMPILE } = require("hardhat/builtin-tasks/task-names");
 
-task('deploy-adapter-sidechain', 'Deploy StargateAdapterSidechain')
-    .addParam('stgAdapterMainchain', 'StargateAdapterMainchain address', '', types.string)
-    .addParam('weth', 'Wrapped Ether address', '', types.string)
+task('deploy-adapter-sidechain', 'Deploy DebridgeAdapterSidechain')
+    .addParam('dlnSource', 'Used to place orders on DLN', '', types.string)
+    .addParam('debridgeAdapterMainchain', 'The address of DebridgeAdapterMainchain', '', types.string)
     .setAction(
-        async ({ stgAdapterMainchain, weth }, { ethers, run, network, upgrades }) => {
+        async ({ dlnSource, debridgeAdapterMainchain }, { ethers, run, network, upgrades }) => {
             await run(TASK_COMPILE);
 
             if (network.name == "flow" || network.name == "flowTestnet") {
@@ -13,22 +13,22 @@ task('deploy-adapter-sidechain', 'Deploy StargateAdapterSidechain')
                 return;
             }
 
-            if (stgAdapterMainchain == "") {
+            if (debridgeAdapterMainchain == "") {
                 console.log("Invalid argument");
                 return;
             }
 
-            const StargateAdapterSidechain = await ethers.getContractFactory("StargateAdapterSidechain");
-            const stargateAdapterSidechain = await upgrades.deployProxy(StargateAdapterSidechain, [stgAdapterMainchain, weth]);
-            await stargateAdapterSidechain.waitForDeployment();
+            const DebridgeAdapterSidechain = await ethers.getContractFactory("DebridgeAdapterSidechain");
+            const debridgeAdapterSidechain = await upgrades.deployProxy(DebridgeAdapterSidechain, [dlnSource, debridgeAdapterMainchain]);
+            await debridgeAdapterSidechain.waitForDeployment();
 
-            console.log("StargateAdapterSidechain deployed to ", await stargateAdapterSidechain.getAddress());
+            console.log("DebridgeAdapterSidechain deployed to ", await debridgeAdapterSidechain.getAddress());
 
             // verify
             await run('verify:verify', {
-                address: await stargateAdapterSidechain.getAddress()
+                address: await debridgeAdapterSidechain.getAddress()
             });
 
-            console.log("StargateAdapterSidechain verified");
+            console.log("DebridgeAdapterSidechain verified");
         }
     );
