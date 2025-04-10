@@ -21,18 +21,14 @@ contract DebridgeAdapterSidechain is DebridgeAdapterBase {
         bytes targetPayload;
     }
 
-    error InsufficientAmount();
-
-    uint256 public constant FLOW_INTERNAL_ID = 100000009;
-    address public constant FLOW_USDC = 0xF1815bd50389c46847f0Bda824eC8da914045D14;
-
-    address public debridgeAdapterMainchain;
-
     event Supply(
         bytes32 indexed orderId,
         address indexed supplier,
         address indexed asset,
-        uint256 amount
+        uint256 amount,
+        address takeAsset,
+        uint256 takeAmount,
+        bytes externalCall
     );
 
     event Repay(
@@ -40,12 +36,21 @@ contract DebridgeAdapterSidechain is DebridgeAdapterBase {
         address indexed repayer,
         address indexed asset,
         uint256 amount,
-        uint256 interestRateMode
+        uint256 interestRateMode,
+        address takeAsset,
+        uint256 takeAmount,
+        bytes externalCall
     );
 
-    event SetDebridgeAdapterMainchain(
-        address debridgeAdapterMainchain
-    );
+    event SetDebridgeAdapterMainchain(address debridgeAdapterMainchain);
+ 
+    event SetSwapRouter(address swapRouter);
+
+    uint256 public constant FLOW_INTERNAL_ID = 100000009;
+
+    address public debridgeAdapterMainchain;
+    address public swapRouter;
+    address public usdc;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -54,11 +59,15 @@ contract DebridgeAdapterSidechain is DebridgeAdapterBase {
 
     function initialize(
         address dlnSource_,
-        address debridgeAdapterMainchain_
+        address debridgeAdapterMainchain_,
+        address swapRouter_,
+        address usdc_
     ) public initializer {
         __DebridgeAdapterBase_init(dlnSource_);
 
         debridgeAdapterMainchain = debridgeAdapterMainchain_;
+        swapRouter = swapRouter_;
+        usdc = usdc_;
     }
 
     function setDebridgeAdapterMainchain(
@@ -70,6 +79,15 @@ contract DebridgeAdapterSidechain is DebridgeAdapterBase {
         emit SetDebridgeAdapterMainchain(debridgeAdapterMainchain_);
     }
 
+    function setSwapRouter(
+        address swapRouter_
+    ) external onlyOwner {
+        if (swapRouter_ == address(0)) revert ZeroAddress();
+        swapRouter = swapRouter_;
+
+        emit SetSwapRouter(swapRouter_);
+    }
+
     /**
      * @notice Supplies an `amount` of underlying asset into the reserve pool from a different chain.
      * @dev Always send `msg.value` for the bridge. It must be the same as the estimated fee.
@@ -79,86 +97,97 @@ contract DebridgeAdapterSidechain is DebridgeAdapterBase {
      */
     function supply(
         address asset,
-        uint256 amount
+        uint256 amount,
+        address takeAsset,
+        uint256 takeAmount
     ) external payable returns (bytes32) {
-        // getting the protocol fee
-        uint256 protocolFee = IDlnSource(dlnSource).globalFixedNativeFee();
+        if (asset == address(0)) revert ZeroAddress();
 
-        uint256 takeAmount = _calculateTakeAmount(amount);
-
-        if (asset != address(0)) {
-            IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
-            IERC20(asset).approve(dlnSource, amount);
-        } else { // native in ETH
-            if (msg.value < amount + protocolFee) revert InsufficientAmount();
-        }
+        IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
     
+        uint256 giveAmount = _swapToUSDC(asset, amount);
         bytes memory externalCall = _encodeHookDataV1(ActionType.Supply, msg.sender, 0);
 
         // preparing an order
         DlnOrderLib.OrderCreation memory orderCreation = Helpers.prepareOrder(
-            address(this),
-            asset,
-            amount,
-            FLOW_USDC,
+            msg.sender,
+            usdc,
+            giveAmount,
+            takeAsset,
             takeAmount,
             FLOW_INTERNAL_ID,
             debridgeAdapterMainchain,
             externalCall
         );
 
+        IERC20(usdc).approve(dlnSource, giveAmount);
         // placing an order
-        bytes32 orderId = IDlnSource(dlnSource).createOrder{value: protocolFee}(
+        bytes32 orderId = IDlnSource(dlnSource).createOrder{value: msg.value}(
             orderCreation,
             "",
             0,
             ""
         );
 
-        emit Supply(orderId, msg.sender, asset, amount);
+        emit Supply(orderId, msg.sender, asset, amount, takeAsset, takeAmount, externalCall);
         return orderId;
     }
 
     function repay(
         address asset,
         uint256 amount,
-        uint256 interestRateMode
+        uint256 interestRateMode,
+        address takeAsset,
+        uint256 takeAmount
     ) external payable returns (bytes32) {
-        // getting the protocol fee
-        uint256 protocolFee = IDlnSource(dlnSource).globalFixedNativeFee();
-        uint256 takeAmount = _calculateTakeAmount(amount);
+        if (asset == address(0)) revert ZeroAddress();
 
-        if (asset != address(0)) {
-            IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
-            IERC20(asset).approve(dlnSource, amount);
-        } else { // native in ETH
-            if (msg.value < amount + protocolFee) revert InsufficientAmount();
-        }
-
+        IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
+      
+        uint256 giveAmount = _swapToUSDC(asset, amount);
         bytes memory externalCall = _encodeHookDataV1(ActionType.Repay, msg.sender, interestRateMode);
 
         // preparing an order
         DlnOrderLib.OrderCreation memory orderCreation = Helpers.prepareOrder(
-            address(this),
-            asset,
-            amount,
-            FLOW_USDC,
+            msg.sender,
+            usdc,
+            giveAmount,
+            takeAsset,
             takeAmount,
             FLOW_INTERNAL_ID,
             debridgeAdapterMainchain,
             externalCall
         );
 
+        IERC20(usdc).approve(dlnSource, giveAmount);
         // placing an order
-        bytes32 orderId = IDlnSource(dlnSource).createOrder{value: protocolFee}(
+        bytes32 orderId = IDlnSource(dlnSource).createOrder{value: msg.value}(
             orderCreation,
             "",
             0,
             ""
         );
 
-        emit Repay(orderId, msg.sender, asset, amount, interestRateMode);
+        emit Repay(orderId, msg.sender, asset, amount, interestRateMode, takeAsset, takeAmount, externalCall);
         return orderId;
+    }
+
+    function _swapToUSDC(
+        address tokenIn,
+        uint256 amountIn
+    ) internal returns (uint256) {
+        if (tokenIn != usdc) {
+            address[] memory path = new address[](2);
+                path[0] = tokenIn;
+                path[1] = usdc;
+
+            return _swapSingleHopExactAmountIn(
+                swapRouter,
+                tokenIn,
+                amountIn,
+                path
+            );
+        } else return amountIn;
     }
 
     function _encodeHookDataV1(
@@ -175,15 +204,17 @@ contract DebridgeAdapterSidechain is DebridgeAdapterBase {
             interestRateMode
         );
     
-        // encode the HookDataV1 fields
-        bytes memory envelopeData = abi.encode(
-            address(0), // fallbackAddress
+        HookDataV1 memory hookDataV1 = HookDataV1(
+            onBehalfOf, // fallbackAddress
             debridgeAdapterMainchain, // target
-            0, // reward
+            uint160(0), // reward
             false, // isNonAtomic
             true, // isSuccessRequired
             targetPayload // targetPayload
         );
+    
+        // encode the HookDataV1 fields
+        bytes memory envelopeData = abi.encode(hookDataV1);
 
         // final externalCallEnvelope = envelopeVersion + envelopeData
         return abi.encode(envelopeVersion, envelopeData);

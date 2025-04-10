@@ -22,13 +22,13 @@ library Helpers {
             takeChainId: takeChainId,
             receiverDst: addressToBytes(receiver),
             givePatchAuthoritySrc: maker,
-            orderAuthorityAddressDst: addressToBytes(receiver),
+            orderAuthorityAddressDst: addressToBytes(maker),
             allowedTakerDst: "",
             externalCall: externalCall,
             allowedCancelBeneficiarySrc: ""
         });
     }
-    
+
     /**
      * @dev Converts an address to bytes.
      * @param addr The address to convert.

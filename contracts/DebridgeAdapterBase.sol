@@ -5,6 +5,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { IDlnSource } from "./interfaces/IDlnSource.sol";
+import { IUniswapV2Router02 } from "./interfaces/IUniswapV2Router02.sol";
 
 abstract contract DebridgeAdapterBase is OwnableUpgradeable {
     using SafeERC20 for IERC20;
@@ -15,15 +16,10 @@ abstract contract DebridgeAdapterBase is OwnableUpgradeable {
     }
 
     error ZeroAddress();
+    error TooMuchRequested(address routerV2);
 
     event RecoverToken(address indexed token, address indexed to, uint256 amount);
     event SetDlnSource(address dlnSource);
-    event SetVariableFee(uint256 variableFee);
-    event SetSolverGasCost(uint256 solverGasCost);
-
-    uint256 public constant BPS_DENOMINATOR = 10000;
-    uint256 public variableFee;
-    uint256 public solverGasCost;
 
     address public dlnSource;
 
@@ -33,12 +29,24 @@ abstract contract DebridgeAdapterBase is OwnableUpgradeable {
         __Ownable_init(msg.sender);
 
         dlnSource = dlnSource_;
-        variableFee = 4; // denominated in bps
-        solverGasCost = 5e5; // $0.5 
     }
 
+    /**
+     * @notice This function returns the global fixed fee in the native asset of the protocol.
+     * @dev This fee is denominated in the native asset (like Ether in Ethereum).
+     * @return uint88 This return value represents the global fixed fee in the native asset.
+     */
     function getFixedNativeFee() external returns (uint88) {
         return IDlnSource(dlnSource).globalFixedNativeFee();
+    }
+
+    /**
+     * @notice This function provides the global transfer fee, expressed in Basis Points (BPS).
+     * @dev It retrieves a global fee which is applied to order.giveAmount. The fee is represented in Basis Points (BPS), where 1 BPS equals 0.01%.
+     * @return uint16 The return value represents the global transfer fee in BPS.
+     */
+    function getTransferFeeBps() external returns (uint88) {
+        return IDlnSource(dlnSource).globalTransferFeeBps();
     }
 
     /// @dev Recovers the token sent to this contract by mistake
@@ -53,18 +61,6 @@ abstract contract DebridgeAdapterBase is OwnableUpgradeable {
         emit RecoverToken(token, to, amount);
     }
 
-    function setVariableFee(uint256 variableFee_) external onlyOwner {
-        variableFee = variableFee_;
-
-        emit SetVariableFee(variableFee_);
-    }
-
-    function setSolverGasCost(uint256 solverGasCost_) external onlyOwner {
-        solverGasCost = solverGasCost_;
-
-        emit SetSolverGasCost(solverGasCost_);
-    }
-
     function setDlnSource(address dlnSource_) external onlyOwner {
         if (dlnSource_ == address(0)) revert ZeroAddress();
         dlnSource = dlnSource_;
@@ -72,10 +68,28 @@ abstract contract DebridgeAdapterBase is OwnableUpgradeable {
         emit SetDlnSource(dlnSource_);
     }
 
-    function _calculateTakeAmount(
-        uint256 giveAmount
-    ) internal returns (uint256) {
-        uint256 transferFee = IDlnSource(dlnSource).globalTransferFeeBps();
-        return giveAmount * (BPS_DENOMINATOR - transferFee - variableFee) / BPS_DENOMINATOR - solverGasCost;
+    function _swapSingleHopExactAmountIn(
+        address routerV2,
+        address tokenIn,
+        uint256 amountIn,
+        address[] memory path
+    ) internal returns (uint256 amountOut) {
+        // approve fist
+        IERC20(tokenIn).approve(routerV2, amountIn);
+
+        uint256[] memory amountsOut = IUniswapV2Router02(routerV2).getAmountsOut(amountIn, path);
+
+        uint256 amountOutMin = (amountsOut[amountsOut.length - 1] * 995) / 1000; // 0.5% slippage
+        if (amountOutMin == 0) revert TooMuchRequested(routerV2);
+        // do swap
+        amountsOut = IUniswapV2Router02(routerV2).swapExactTokensForTokens(
+            amountIn,
+            amountOutMin,
+            path,
+            address(this),
+            block.timestamp
+        );
+
+        return amountsOut[amountsOut.length - 1];
     }
 }
