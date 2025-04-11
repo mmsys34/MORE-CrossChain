@@ -13,6 +13,9 @@ import { DebridgeAdapterSidechain } from "../contracts/DebridgeAdapterSidechain.
 import { DebridgeAdapterMainchain } from "../contracts/DebridgeAdapterMainchain.sol";
 
 contract DebridgeAdapterSidechainTest is Test {
+    address usdcOnFlow = 0xF1815bd50389c46847f0Bda824eC8da914045D14;
+    address wethOnFlow = 0x2F6F07CDcf3588944Bf4C42aC74ff24bF56e7590;
+    address swapRouter = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
     address usdc = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     address weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
@@ -32,27 +35,50 @@ contract DebridgeAdapterSidechainTest is Test {
         address implementation = address(new DebridgeAdapterSidechain());
         address proxy = address(new TransparentUpgradeableProxy(implementation, address(this), ""));
         debridgeAdapter = DebridgeAdapterSidechain(proxy);
-        debridgeAdapter.initialize(dlnSource, proxyDebridgeAdapterMainchain);
+        debridgeAdapter.initialize(dlnSource, 0xD797764D0b5A339488BFC944fF0105aA14200811, swapRouter, usdc);
     
         deal(user, 1 ether);
+        deal(weth, user, 1e18);
         deal(usdc, user, 100e6);
     }
 
     function test_SupplyUSDC() public {
         uint256 amount = 1e6;
+        uint256 takeAmount = uint256(819361) * 995 / 1000; // 0.5% slippage
         uint256 protocolFee = IDlnSource(dlnSource).globalFixedNativeFee();
 
         vm.startPrank(user);
         IERC20(usdc).approve(address(debridgeAdapter), amount);
-        debridgeAdapter.supply{value: protocolFee}(usdc, amount);
+        debridgeAdapter.supply{value: protocolFee}(usdc, amount, usdcOnFlow, takeAmount);
+    }
+
+    function test_SupplyWETH() public {
+        uint256 amount = 1e16;
+        uint256 takeAmount = uint256(9779871707688550) * 995 / 1000; // 0.5% slippage
+        uint256 protocolFee = IDlnSource(dlnSource).globalFixedNativeFee();
+
+        vm.startPrank(user);
+        IERC20(weth).approve(address(debridgeAdapter), amount);
+        debridgeAdapter.supply{value: protocolFee}(weth, amount, wethOnFlow, takeAmount);
     }
 
     function test_RepayUSDC() public {
         uint256 amount = 1e6;
+        uint256 takeAmount = uint256(819361) * 995 / 1000; // 0.5% slippage
         uint256 protocolFee = IDlnSource(dlnSource).globalFixedNativeFee();
 
         vm.startPrank(user);
         IERC20(usdc).approve(address(debridgeAdapter), amount);
-        debridgeAdapter.repay{value: protocolFee}(usdc, amount, 2);
+        debridgeAdapter.repay{value: protocolFee}(usdc, amount, 2, usdcOnFlow, takeAmount);
+    }
+
+    function test_RepayWETH() public {
+        uint256 amount = 1e16;
+        uint256 takeAmount = uint256(9779871707688550);
+        uint256 protocolFee = IDlnSource(dlnSource).globalFixedNativeFee();
+
+        vm.startPrank(user);
+        IERC20(weth).approve(address(debridgeAdapter), amount);
+        debridgeAdapter.repay{value: protocolFee}(weth, amount, 2, wethOnFlow, takeAmount);
     }
 }
