@@ -217,6 +217,6 @@ contract DebridgeAdapterSidechain is DebridgeAdapterBase {
         bytes memory envelopeData = abi.encode(hookDataV1);
 
         // final externalCallEnvelope = envelopeVersion + envelopeData
-        return abi.encode(envelopeVersion, envelopeData);
+        return abi.encodePacked(envelopeVersion, envelopeData);
     }
 }
